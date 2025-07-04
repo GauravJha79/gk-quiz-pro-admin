@@ -3,33 +3,21 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import {
   LayoutDashboard,
   BookOpen,
-  Layers,
-  Folder,
-  FolderOpen,
-  FileText,
   HelpCircle,
   Users,
-  BarChart2,
-  Trophy,
   Settings,
   Menu as MenuIcon,
   LogOut as LogoutIcon
 } from 'lucide-react'
-import { supabase } from './supabaseClient'
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import { useAuth } from './hooks/useAuth'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { to: '/exam-books', label: 'Exam Books', icon: <BookOpen size={20} /> },
-  { to: '/sections', label: 'Sections', icon: <Layers size={20} /> },
-  { to: '/categories', label: 'Categories', icon: <Folder size={20} /> },
-  { to: '/subcategories', label: 'Subcategories', icon: <FolderOpen size={20} /> },
-  { to: '/quizzes', label: 'Quizzes', icon: <FileText size={20} /> },
-  { to: '/questions', label: 'Questions', icon: <HelpCircle size={20} /> },
+  { to: '/question-reports', label: 'Question Reports', icon: <HelpCircle size={20} /> },
   { to: '/users', label: 'Users', icon: <Users size={20} /> },
-  { to: '/reports', label: 'Reports', icon: <BarChart2 size={20} /> },
-  { to: '/leaderboard', label: 'Leaderboard', icon: <Trophy size={20} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={20} /> },
 ]
 
@@ -43,53 +31,71 @@ export default function DashboardLayout() {
   const pageTitle = getPageTitle(location.pathname)
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const auth = useAuth()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await auth.signOut()
     navigate('/login', { replace: true })
   }
 
   const Sidebar = (
-    <nav className="flex flex-col h-full">
+    <nav className="flex flex-col h-full px-3 py-4 bg-white border-r shadow-lg">
+      {/* Logo */}
       <div className="flex items-center gap-2 mb-8 px-2 pt-2">
         <div className="bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg">
-          <span className="text-2xl font-black tracking-tight">GK</span>
+          <span className="text-2xl font-black tracking-tight text-white">GK</span>
         </div>
-        <span className="text-xl font-bold tracking-wide ml-2">GK App Admin</span>
+        <span className="text-xl font-bold tracking-wide ml-2 text-blue-900">GK App Admin</span>
       </div>
+      {/* Nav Links */}
       <div className="flex-1 space-y-1">
         {navLinks.map(link => (
           <NavLink
             key={link.to}
             to={link.to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-150 font-medium text-base ${isActive
+              `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-150 font-medium text-base focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${isActive
                 ? 'bg-blue-100 text-blue-700 shadow'
                 : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
               }`
             }
             end
             onClick={() => setSidebarOpen(false)}
+            tabIndex={0}
+            aria-label={link.label}
           >
             {link.icon}
             <span>{link.label}</span>
           </NavLink>
         ))}
       </div>
-      <Button
-        variant="destructive"
-        className="w-full mt-8 flex items-center gap-2"
-        onClick={handleLogout}
-      >
-        <LogoutIcon size={18} /> Logout
-      </Button>
+      {/* User/Logout Section */}
+      <div className="mt-8 border-t pt-4 flex flex-col gap-2">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center font-bold text-blue-700">
+            {auth.user?.email?.charAt(0).toUpperCase() || 'A'}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-blue-900">Admin</span>
+            <span className="text-xs text-gray-500">{auth.user?.email || 'admin@gkapp.com'}</span>
+          </div>
+        </div>
+        <Button
+          variant="destructive"
+          className="w-full flex items-center gap-2 mt-2"
+          onClick={handleLogout}
+          aria-label="Logout"
+        >
+          <LogoutIcon size={18} /> Logout
+        </Button>
+      </div>
     </nav>
   )
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar for desktop */}
-      <aside className="hidden md:flex w-64 flex-col h-screen fixed left-0 top-0 z-30 bg-white border-r shadow-lg">
+      <aside className="hidden md:flex w-64 flex-col h-screen fixed left-0 top-0 z-30">
         {Sidebar}
       </aside>
       {/* Sidebar for mobile (Sheet) */}
@@ -109,7 +115,7 @@ export default function DashboardLayout() {
         <header className="flex items-center justify-between px-4 md:px-10 py-4 bg-white shadow-sm border-b sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <div className="md:hidden">
-              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
                 <MenuIcon size={28} />
               </Button>
             </div>
@@ -117,7 +123,9 @@ export default function DashboardLayout() {
           </div>
         </header>
         <main className="flex-1 p-4 md:p-8 bg-gray-50">
-          <Outlet />
+          <div className="max-w-6xl mx-auto w-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

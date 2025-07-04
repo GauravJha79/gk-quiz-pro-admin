@@ -17,6 +17,7 @@ import {
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './components/ui/table';
+import { v4 as uuidv4 } from 'uuid';
 
 
 // Type for a row in the quiz_sections table
@@ -102,7 +103,9 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
     setLoading(true);
     let result;
     if (editId) {
-      result = await supabase.from('quiz_sections').update(values).eq('id', editId);
+      // Don't update moduleCode on edit
+      const { moduleCode, ...updateValues } = values;
+      result = await supabase.from('quiz_sections').update(updateValues).eq('id', editId);
     } else {
       result = await supabase.from('quiz_sections').insert([values]);
     }
@@ -168,11 +171,11 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
               onClick={() => {
                 setEditId(null);
                 reset({
-                  moduleCode: '',
+                  moduleCode: uuidv4(),
                   moduleTitle: '',
                   sectionStatus: 1,
-                  liveTimestamp: '',
-                  displayOrder: 0,
+                  liveTimestamp: new Date().toISOString().slice(0, 16),
+                  displayOrder: sections.length + 1,
                   iconLink: '',
                   bookRef: bookId || '',
                   languageCode: language,
@@ -188,11 +191,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
               <DialogTitle>{editId ? 'Edit Section' : 'Add Section'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              <div>
-                <label className="block mb-1 font-medium text-gray-700">Module Code</label>
-                <Input {...register('moduleCode')} />
-                {errors.moduleCode && <p className="text-red-500 text-xs mt-1">{errors.moduleCode.message}</p>}
-              </div>
+              {/* Module Code is not shown as an input field anymore */}
               <div>
                 <label className="block mb-1 font-medium text-gray-700">Module Title</label>
                 <Input {...register('moduleTitle')} />
@@ -221,6 +220,19 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                 <label className="block mb-1 font-medium text-gray-700">Icon Link</label>
                 <Input {...register('iconLink')} />
                 {errors.iconLink && <p className="text-red-500 text-xs mt-1">{errors.iconLink.message}</p>}
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-gray-700">Language</label>
+                <select
+                  className="w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                  {...register('languageCode')}
+                  value={undefined} // Let react-hook-form control the value
+                  onChange={e => setValue('languageCode', e.target.value)}
+                >
+                  <option value="hi">Hindi</option>
+                  <option value="en">English</option>
+                </select>
+                {errors.languageCode && <p className="text-red-500 text-xs mt-1">{errors.languageCode.message}</p>}
               </div>
               <DialogFooter>
                 <DialogClose asChild>
@@ -265,7 +277,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                   onClick={e => {
                     // Prevent navigation if clicking on an action button
                     if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/categories/${section.moduleCode}`);
+                    navigate(`/categories/${section.moduleCode}?lang=${section.languageCode}`);
                   }}
                 >
                   <TableCell>

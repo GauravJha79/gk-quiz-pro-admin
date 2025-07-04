@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from './supabaseClient';
 import toast, { Toaster } from 'react-hot-toast';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -65,7 +65,9 @@ type QuizCategoryForm = z.infer<typeof quizCategorySchema>;
 
 export default function QuizCategoriesPage() {
   const params = useParams<{ moduleCode: string }>();
+  const [searchParams] = useSearchParams();
   const moduleCode = params.moduleCode;
+  const languageCode = searchParams.get('lang') || 'en';
   const navigate = useNavigate();
   const [categories, setCategories] = useState<QuizCategory[]>([]);
   const [sections, setSections] = useState<QuizSection[]>([]);
@@ -88,7 +90,7 @@ export default function QuizCategoriesPage() {
     resolver: zodResolver(quizCategorySchema),
     defaultValues: {
       categoryStatus: 1,
-      languageCode: 'en',
+      languageCode: languageCode,
       displayOrder: 0,
       moduleCode: moduleCode || '',
       moduleTitle: '',
@@ -103,6 +105,7 @@ export default function QuizCategoriesPage() {
       .from('quiz_categories')
       .select('*')
       .eq('moduleCode', moduleCode)
+      .eq('languageCode', languageCode)
       .order('displayOrder');
     if (error) {
       toast.error('Failed to fetch categories');
@@ -135,7 +138,7 @@ export default function QuizCategoriesPage() {
     fetchCategories();
     fetchSections();
     // eslint-disable-next-line
-  }, [moduleCode]);
+  }, [moduleCode, languageCode]);
 
   // Add or update category
   const onSubmit = async (values: QuizCategoryForm) => {
@@ -209,7 +212,7 @@ export default function QuizCategoriesPage() {
                     iconLink: '',
                     displayOrder: categories.length + 1,
                     categoryStatus: 1,
-                    languageCode: 'en',
+                    languageCode: languageCode,
                     moduleCode: sections[0].moduleCode,
                     moduleTitle: sections[0].moduleTitle,
                   });
@@ -283,7 +286,7 @@ export default function QuizCategoriesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Segment Title</TableHead>
-              <TableHead>Segment Code</TableHead>
+             
               <TableHead>Icon</TableHead>
               <TableHead>Display Order</TableHead>
               <TableHead>Status</TableHead>
@@ -313,7 +316,7 @@ export default function QuizCategoriesPage() {
                       {category.segmentTitle}
                     </button>
                   </TableCell>
-                  <TableCell>{category.segmentCode}</TableCell>
+                 
                   <TableCell>
                     {category.iconLink ? (
                       <img src={category.iconLink} alt="icon" className="w-10 h-10 object-contain rounded shadow border bg-gray-50" />

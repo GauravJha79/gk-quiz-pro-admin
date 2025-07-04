@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { supabase } from './supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from './hooks/useAuth'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -13,6 +13,7 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const auth = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const {
@@ -24,15 +25,18 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginForm) => {
     setLoading(true)
     setError('')
-    const { error } = await supabase.auth.signInWithPassword({
-      email: values.email,
-      password: values.password,
-    })
-    setLoading(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      navigate('/dashboard')
+    
+    try {
+      await auth.signIn({ email: values.email, password: values.password })
+      if (!auth.error) {
+        navigate('/dashboard')
+      } else {
+        setError(auth.error)
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
     }
   }
 
