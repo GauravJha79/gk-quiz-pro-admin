@@ -18,6 +18,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './components/ui/table';
 import { v4 as uuidv4 } from 'uuid';
+import SetAlertDialog from './atoms/SetAlertDialog';
 
 
 // Type for a row in the quiz_sections table
@@ -46,7 +47,7 @@ const quizSectionSchema = z.object({
   moduleTitle: z.string().min(1, 'Module Title is required'),
   sectionStatus: z.coerce.number().int().min(0).max(1),
   displayOrder: z.coerce.number().int().min(0),
-  iconLink: z.string().url('Icon must be a valid URL').optional().nullable().or(z.literal('')),
+  iconLink: z.string().min(1, 'Icon Link is required').url('Icon must be a valid URL'),
   bookRef: z.string().min(1, 'Book Ref is required'),
   languageCode: z.string().min(1, 'Language Code is required'),
 });
@@ -61,6 +62,8 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
   const [editId, setEditId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showSetAlert, setShowSetAlert] = useState(false);
+  const [setAlertData, setSetAlertData] = useState<{ setCount: number; title: string } | null>(null);
   const navigate = useNavigate();
   const [language, setLanguage] = useState<string>('hi');
 
@@ -129,21 +132,52 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
   // Edit handler
   const handleEdit = (section: QuizSection) => {
     setEditId(section.id);
-    reset(section);
+    reset({
+      ...section,
+      iconLink: section.iconLink || '', // Convert null to empty string for form
+    });
     setOpen(true);
   };
 
   // Delete handler
   const handleDelete = async () => {
     if (deleteId == null) return;
-    setDeleteLoading(true);
-    const { error } = await supabase.from('quiz_sections').delete().eq('id', deleteId);
-    if (error) {
-      toast.error('Delete failed');
-    } else {
-      toast.success('Section deleted');
-      fetchSections();
+    
+    // Find the section to get its data
+    const sectionToDelete = sections.find(section => section.id === deleteId);
+    if (!sectionToDelete) {
+      toast.error('Section not found');
+      setDeleteId(null);
+      return;
     }
+
+    // Check if the section has any sets
+    if (sectionToDelete.setCount && sectionToDelete.setCount > 0) {
+      // Show custom alert dialog
+      setSetAlertData({
+        setCount: sectionToDelete.setCount,
+        title: sectionToDelete.moduleTitle
+      });
+      setShowSetAlert(true);
+      setDeleteId(null);
+      return;
+    }
+
+    setDeleteLoading(true);
+    
+    try {
+      // Proceed with deletion since no sets exist
+      const { error } = await supabase.from('quiz_sections').delete().eq('id', deleteId);
+      if (error) {
+        toast.error('Delete failed');
+      } else {
+        toast.success('Section deleted');
+        fetchSections();
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred');
+    }
+    
     setDeleteLoading(false);
     setDeleteId(null);
   };
@@ -218,8 +252,8 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                 {errors.displayOrder && <p className="text-red-500 text-xs mt-1">{errors.displayOrder.message}</p>}
               </div>
               <div>
-                <label className="block mb-1 font-medium text-gray-700">Icon Link</label>
-                <Input {...register('iconLink')} />
+                <label className="block mb-1 font-medium text-gray-700">Icon Link <span className="text-red-500">*</span></label>
+                <Input {...register('iconLink')} placeholder="Enter icon URL" />
                 {errors.iconLink && <p className="text-red-500 text-xs mt-1">{errors.iconLink.message}</p>}
               </div>
               <div>
@@ -258,17 +292,18 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
               <TableHead>Module Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Order</TableHead>
+              <TableHead>Set Count</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">Loading...</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell>
               </TableRow>
             ) : sections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">No sections found.</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">No sections found.</TableCell>
               </TableRow>
             ) : (
               sections.map(section => (
@@ -278,7 +313,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                   onClick={e => {
                     // Prevent navigation if clicking on an action button
                     if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/categories/${section.moduleCode}?lang=${section.languageCode}`);
+                    navigate(`/categories/${section.moduleCode}?lang=${section.languageCode}&bookRef=${bookId}`);
                   }}
                 >
                   <TableCell>
@@ -291,6 +326,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                   <TableCell>{section.moduleTitle}</TableCell>
                   <TableCell>{sectionStatusOptions.find(opt => opt.value === section.sectionStatus)?.label || section.sectionStatus}</TableCell>
                   <TableCell>{section.displayOrder}</TableCell>
+                  <TableCell>{section.setCount || 0}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="secondary" onClick={() => handleEdit(section)}>
@@ -326,6 +362,13 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Set Alert Dialog */}
+      <SetAlertDialog
+        isOpen={showSetAlert}
+        onClose={() => setShowSetAlert(false)}
+        data={setAlertData}
+      />
     </div>
   );
 } 

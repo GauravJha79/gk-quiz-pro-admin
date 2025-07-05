@@ -18,6 +18,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './components/ui/table';
 import { v4 as uuidv4 } from 'uuid';
+import CategoryDeleteAlertDialog from './atoms/CategoryDeleteAlertDialog';
 
 // Types
 export type QuizCategory = {
@@ -68,6 +69,7 @@ export default function QuizCategoriesPage() {
   const [searchParams] = useSearchParams();
   const moduleCode = params.moduleCode;
   const languageCode = searchParams.get('lang') || 'en';
+  const bookRef = searchParams.get('bookRef') || '';
   const navigate = useNavigate();
   const [categories, setCategories] = useState<QuizCategory[]>([]);
   const [sections, setSections] = useState<QuizSection[]>([]);
@@ -78,6 +80,8 @@ export default function QuizCategoriesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showCategoryDeleteAlert, setShowCategoryDeleteAlert] = useState(false);
+  const [categoryDeleteAlertData, setCategoryDeleteAlertData] = useState<{ setCount: number; questionVolume: number; title: string } | null>(null);
 
   const {
     register,
@@ -181,14 +185,46 @@ export default function QuizCategoriesPage() {
   // Delete category
   const handleDelete = async () => {
     if (!deleteId) return;
-    setDeleteLoading(true);
-    const { error } = await supabase.from('quiz_categories').delete().eq('id', deleteId);
-    if (error) {
-      toast.error('Delete failed');
-    } else {
-      toast.success('Category deleted');
-      fetchCategories();
+    
+    // Find the category to get its data
+    const categoryToDelete = categories.find(category => category.id.toString() === deleteId);
+    if (!categoryToDelete) {
+      toast.error('Category not found');
+      setDeleteId(null);
+      return;
     }
+
+    // Check if the category has any sets or questions
+    const hasSets = categoryToDelete.setCount && categoryToDelete.setCount > 0;
+    const hasQuestions = categoryToDelete.questionVolume && categoryToDelete.questionVolume > 0;
+
+    if (hasSets || hasQuestions) {
+      // Show custom alert dialog
+      setCategoryDeleteAlertData({
+        setCount: categoryToDelete.setCount || 0,
+        questionVolume: categoryToDelete.questionVolume || 0,
+        title: categoryToDelete.segmentTitle
+      });
+      setShowCategoryDeleteAlert(true);
+      setDeleteId(null);
+      return;
+    }
+
+    setDeleteLoading(true);
+    
+    try {
+      // Proceed with deletion since no sets or questions exist
+      const { error } = await supabase.from('quiz_categories').delete().eq('id', deleteId);
+      if (error) {
+        toast.error('Delete failed');
+      } else {
+        toast.success('Category deleted');
+        fetchCategories();
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred');
+    }
+    
     setDeleteLoading(false);
     setDeleteId(null);
   };
@@ -310,7 +346,7 @@ export default function QuizCategoriesPage() {
                   <TableCell>
                     <button
                       className="text-blue-600 underline hover:text-blue-800 transition cursor-pointer"
-                      onClick={() => navigate(`/quizzes/${category.segmentCode}`)}
+                      onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}`)}
                       type="button"
                     >
                       {category.segmentTitle}
@@ -379,6 +415,13 @@ export default function QuizCategoriesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Category Delete Alert Dialog */}
+      <CategoryDeleteAlertDialog
+        isOpen={showCategoryDeleteAlert}
+        onClose={() => setShowCategoryDeleteAlert(false)}
+        data={categoryDeleteAlertData}
+      />
     </div>
   );
 } 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import toast, { Toaster } from 'react-hot-toast';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { nanoid } from 'nanoid';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -31,6 +31,8 @@ export type Question = {
   noteText?: string | null;
   previouslyAskedIn?: string | null;
   languageCode: 'en' | 'hi';
+  bookRef?: string | null;
+  segmentCode?: string | null;
   created_at: string;
 };
 
@@ -42,7 +44,10 @@ interface QuestionsPageProps {
 
 const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuizKey }) => {
   const params = useParams<{ internalQuizKey: string }>();
+  const [searchParams] = useSearchParams();
   const quizId = propQuizKey || params.internalQuizKey;
+  const bookRef = searchParams.get('bookRef') || '';
+  const segmentCode = searchParams.get('segmentCode') || '';
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,6 +86,10 @@ const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuiz
 
   // --- Add/Edit Question Dialog ---
   const handleAdd = () => {
+    console.log('Add button clicked'); // Debug log
+    console.log('Current quizId:', quizId); // Debug log
+    console.log('Current bookRef:', bookRef); // Debug log
+    console.log('Current segmentCode:', segmentCode); // Debug log
     setDialogMode('add');
     setDialogInitialValues({});
     setEditId(null);
@@ -113,6 +122,8 @@ const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuiz
       ...values,
       questionId: dialogMode === 'edit' && editId ? editId : nanoid(),
       quizId: quizId!,
+      bookRef: bookRef || null,
+      segmentCode: segmentCode || null,
       created_at: now,
       optionC: values.questionType === 1 ? values.optionC || '' : null,
       optionD: values.questionType === 1 ? values.optionD || '' : null,

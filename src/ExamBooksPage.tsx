@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { supabase } from './supabaseClient'
 import toast, { Toaster } from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
+import CategoryAlertDialog from './atoms/CategoryAlertDialog'
 
 // Type for a row in the exam_book table
 export type ExamBook = {
@@ -39,6 +40,8 @@ export default function ExamBooksPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [page, setPage] = useState(1)
+  const [showCategoryAlert, setShowCategoryAlert] = useState(false)
+  const [categoryAlertData, setCategoryAlertData] = useState<{ hi: number; en: number; title: string } | null>(null)
   const navigate = useNavigate();
 
   const {
@@ -96,14 +99,56 @@ export default function ExamBooksPage() {
   // Delete handler
   const handleDelete = async () => {
     if (deleteId == null) return
-    setDeleteLoading(true)
-    const { error } = await supabase.from('exam_book').delete().eq('id', deleteId)
-    if (error) {
-      toast.error('Delete failed')
-    } else {
-      toast.success('Book deleted')
-      fetchBooks()
+    
+    // Find the book to get its data
+    const bookToDelete = books.find(book => book.id === deleteId)
+    if (!bookToDelete) {
+      toast.error('Book not found')
+      setDeleteId(null)
+      return
     }
+
+    // Check if the book has any categories
+    console.log('Book to delete:', bookToDelete)
+    console.log('Total category HI:', bookToDelete.total_category_hi)
+    console.log('Total category EN:', bookToDelete.total_category_en)
+    
+    if (bookToDelete.total_category_hi > 0 || bookToDelete.total_category_en > 0) {
+      console.log('Preventing deletion - categories exist')
+      // Show custom alert dialog
+      setCategoryAlertData({
+        hi: bookToDelete.total_category_hi,
+        en: bookToDelete.total_category_en,
+        title: bookToDelete.title
+      })
+      setShowCategoryAlert(true)
+      setDeleteId(null)
+      return
+    }
+    
+    console.log('Proceeding with deletion - no categories found')
+
+    setDeleteLoading(true)
+    
+    try {
+      // Proceed with deletion since no categories exist
+      const { error } = await supabase.from('exam_book').delete().eq('id', deleteId)
+      if (error) {
+        console.error('Delete error details:', error)
+        console.error('Error code:', error.code)
+        console.error('Error message:', error.message)
+        console.error('Error details:', error.details)
+        console.error('Error hint:', error.hint)
+        toast.error(`Delete failed: ${error.message}`)
+      } else {
+        toast.success('Book deleted')
+        fetchBooks()
+      }
+    } catch (error) {
+      console.error('Unexpected error during deletion:', error)
+      toast.error('An unexpected error occurred')
+    }
+    
     setDeleteLoading(false)
     setDeleteId(null)
   }
@@ -242,6 +287,13 @@ export default function ExamBooksPage() {
           `}</style>
         </div>
       )}
+
+      {/* Category Alert Dialog */}
+      <CategoryAlertDialog
+        isOpen={showCategoryAlert}
+        onClose={() => setShowCategoryAlert(false)}
+        data={categoryAlertData}
+      />
       {/* Responsive Table with Pagination */}
       <div className="overflow-x-auto rounded-2xl shadow-lg bg-white">
         <table className="min-w-full text-sm text-left text-gray-800">

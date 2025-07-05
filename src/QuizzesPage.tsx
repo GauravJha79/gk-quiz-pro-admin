@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from './supabaseClient';
 import toast, { Toaster } from 'react-hot-toast';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import {
 } from './components/ui/table';
 import { Loader2, Plus, Pencil, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import QuizDeleteAlertDialog from './atoms/QuizDeleteAlertDialog';
 
 // Types
 export type Quiz = {
@@ -37,6 +38,7 @@ export type Quiz = {
   segmentCode: string;
   segmentRef: string;
   segmentTitle?: string;
+  questionVolume?: number | null;
   created_at?: string;
 };
 
@@ -57,7 +59,6 @@ const languageOptions = [
 
 const quizSchema = z.object({
   quizTitle: z.string().min(1, 'Quiz Title is required'),
-  coverImageLink: z.string().url('Cover image must be a valid URL'),
   quizStatus: z.coerce.number().int().min(0).max(1),
   languageCode: z.string().min(1, 'Language is required'),
   segmentRef: z.string().min(1, 'Segment is required'), // stores segmentCode
@@ -70,7 +71,10 @@ interface QuizzesPageProps {
 
 const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode }) => {
   const params = useParams<{ segmentCode: string }>();
+  const [searchParams] = useSearchParams();
   const segmentCode = propSegmentCode || params.segmentCode;
+  const bookRef = searchParams.get('bookRef') || '';
+  const segmentCodeParam = searchParams.get('segmentCode') || segmentCode;
   const navigate = useNavigate();
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -81,6 +85,8 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showQuizDeleteAlert, setShowQuizDeleteAlert] = useState(false);
+  const [quizDeleteAlertData, setQuizDeleteAlertData] = useState<{ questionVolume: number; title: string } | null>(null);
 
   const {
     register,
@@ -94,7 +100,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     defaultValues: {
       quizStatus: 1,
       languageCode: 'en',
-      coverImageLink: '',
       quizTitle: '',
       segmentRef: '',
     },
@@ -152,7 +157,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
         .from('quizzes')
         .update({
           quizTitle: values.quizTitle,
-          coverImageLink: values.coverImageLink,
           quizStatus: values.quizStatus,
           languageCode: values.languageCode,
           segmentCode: values.segmentRef,
@@ -166,7 +170,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
         .from('quizzes')
         .insert([{ 
           quizTitle: values.quizTitle,
-          coverImageLink: values.coverImageLink,
           quizStatus: values.quizStatus,
           languageCode: values.languageCode,
           segmentCode: values.segmentRef,
@@ -192,7 +195,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     setEditId(quiz.internalQuizKey);
     reset({
       quizTitle: quiz.quizTitle,
-      coverImageLink: quiz.coverImageLink,
       quizStatus: quiz.quizStatus,
       languageCode: quiz.languageCode,
       segmentRef: quiz.segmentCode,
@@ -200,8 +202,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     setOpen(true);
   };
 
-  // Image preview
-  const coverImageLink = watch('coverImageLink');
   const selectedSegment = useMemo(
     () => segments.find((s) => s.segmentCode === watch('segmentRef')),
     [segments, watch('segmentRef')]
@@ -210,14 +210,42 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
   // Delete quiz
   const handleDelete = async () => {
     if (!deleteId) return;
-    setDeleteLoading(true);
-    const { error } = await supabase.from('quizzes').delete().eq('internalQuizKey', deleteId);
-    if (error) {
-      toast.error('Delete failed');
-    } else {
-      toast.success('Quiz deleted');
-      fetchQuizzes();
+    
+    // Find the quiz to get its data
+    const quizToDelete = quizzes.find(quiz => quiz.internalQuizKey === deleteId);
+    if (!quizToDelete) {
+      toast.error('Quiz not found');
+      setDeleteId(null);
+      return;
     }
+
+    // Check if the quiz has any questions
+    if (quizToDelete.questionVolume && quizToDelete.questionVolume > 0) {
+      // Show custom alert dialog
+      setQuizDeleteAlertData({
+        questionVolume: quizToDelete.questionVolume,
+        title: quizToDelete.quizTitle
+      });
+      setShowQuizDeleteAlert(true);
+      setDeleteId(null);
+      return;
+    }
+
+    setDeleteLoading(true);
+    
+    try {
+      // Proceed with deletion since no questions exist
+      const { error } = await supabase.from('quizzes').delete().eq('internalQuizKey', deleteId);
+      if (error) {
+        toast.error('Delete failed');
+      } else {
+        toast.success('Quiz deleted');
+        fetchQuizzes();
+      }
+    } catch (error) {
+      toast.error('An unexpected error occurred');
+    }
+    
     setDeleteLoading(false);
     setDeleteId(null);
   };
@@ -233,7 +261,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
               onClick={() => {
                 reset({
                   quizTitle: '',
-                  coverImageLink: '',
                   quizStatus: 1,
                   languageCode: 'en',
                   segmentRef: segmentCode || '',
@@ -254,14 +281,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                 <label className="block mb-1 font-medium text-gray-700">Quiz Title</label>
                 <Input {...register('quizTitle')} placeholder="Quiz Title" />
                 {errors.quizTitle && <p className="text-red-500 text-xs mt-1">{errors.quizTitle.message}</p>}
-              </div>
-              <div>
-                <label className="block mb-1 font-medium text-gray-700 flex items-center gap-2">Cover Image Link <ImageIcon className="w-4 h-4" /></label>
-                <Input {...register('coverImageLink')} placeholder="https://..." />
-                {coverImageLink && z.string().url().safeParse(coverImageLink).success && (
-                  <img src={coverImageLink} alt="cover" className="w-24 h-16 object-cover rounded mt-2 border shadow" />
-                )}
-                {errors.coverImageLink && <p className="text-red-500 text-xs mt-1">{errors.coverImageLink.message}</p>}
               </div>
               <div>
                 <label className="block mb-1 font-medium text-gray-700">Quiz Status</label>
@@ -313,20 +332,19 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
               <TableHead>Quiz Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Language</TableHead>
-              <TableHead>Cover</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">
+                <TableCell colSpan={4} className="text-center py-8 text-gray-400">
                   <Loader2 className="mx-auto animate-spin w-6 h-6" />
                 </TableCell>
               </TableRow>
             ) : quizzes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
+                <TableCell colSpan={4} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
               </TableRow>
             ) : (
               quizzes.map(quiz => (
@@ -336,7 +354,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                   onClick={e => {
                     // Prevent navigation if clicking on an action button
                     if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/questions/${quiz.internalQuizKey}`);
+                    navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}`);
                   }}
                 >
                   <TableCell>{quiz.quizTitle}</TableCell>
@@ -346,13 +364,6 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                     </span>
                   </TableCell>
                   <TableCell>{languageOptions.find(opt => opt.value === quiz.languageCode)?.label || quiz.languageCode}</TableCell>
-                  <TableCell>
-                    {quiz.coverImageLink ? (
-                      <img src={quiz.coverImageLink} alt="cover" className="w-14 h-10 object-cover rounded shadow border bg-gray-50" />
-                    ) : (
-                      <span className="text-gray-400">No Image</span>
-                    )}
-                  </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="secondary" size="sm" onClick={() => handleEdit(quiz)}>
@@ -392,6 +403,13 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quiz Delete Alert Dialog */}
+      <QuizDeleteAlertDialog
+        isOpen={showQuizDeleteAlert}
+        onClose={() => setShowQuizDeleteAlert(false)}
+        data={quizDeleteAlertData}
+      />
     </div>
   );
 };
