@@ -45,9 +45,8 @@ const quizSectionSchema = z.object({
   moduleCode: z.string().min(1, 'Module Code is required'),
   moduleTitle: z.string().min(1, 'Module Title is required'),
   sectionStatus: z.coerce.number().int().min(0).max(1),
-  liveTimestamp: z.string().optional().nullable(),
   displayOrder: z.coerce.number().int().min(0),
-  iconLink: z.string().url('Icon must be a valid URL').optional().nullable(),
+  iconLink: z.string().url('Icon must be a valid URL').optional().nullable().or(z.literal('')),
   bookRef: z.string().min(1, 'Book Ref is required'),
   languageCode: z.string().min(1, 'Language Code is required'),
 });
@@ -101,13 +100,20 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
   // Add or update section
   const onSubmit = async (values: QuizSectionForm) => {
     setLoading(true);
+
     let result;
+    
     if (editId) {
       // Don't update moduleCode on edit
       const { moduleCode, ...updateValues } = values;
       result = await supabase.from('quiz_sections').update(updateValues).eq('id', editId);
     } else {
-      result = await supabase.from('quiz_sections').insert([values]);
+      // Add liveTimestamp only when creating new section
+      const newSectionData = {
+        ...values,
+        liveTimestamp: new Date().toISOString()
+      };
+      result = await supabase.from('quiz_sections').insert([newSectionData]);
     }
     if (result.error) {
       toast.error(result.error.message);
@@ -174,7 +180,6 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                   moduleCode: uuidv4(),
                   moduleTitle: '',
                   sectionStatus: 1,
-                  liveTimestamp: new Date().toISOString().slice(0, 16),
                   displayOrder: sections.length + 1,
                   iconLink: '',
                   bookRef: bookId || '',
@@ -206,11 +211,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
                 </select>
                 {errors.sectionStatus && <p className="text-red-500 text-xs mt-1">{errors.sectionStatus.message}</p>}
               </div>
-              <div>
-                <label className="block mb-1 font-medium text-gray-700">Live Timestamp</label>
-                <Input type="datetime-local" {...register('liveTimestamp')} />
-                {errors.liveTimestamp && <p className="text-red-500 text-xs mt-1">{errors.liveTimestamp.message}</p>}
-              </div>
+
               <div>
                 <label className="block mb-1 font-medium text-gray-700">Display Order</label>
                 <Input type="number" {...register('displayOrder')} />
