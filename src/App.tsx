@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 // @ts-ignore: Allow JSX import of DashboardLayout.jsx
 import DashboardLayout from './DashboardLayout'
+import DashboardHomePage from './DashboardHomePage'
 import ExamBooksPage from './ExamBooksPage'
 import LoginPage from './LoginPage'
 // @ts-ignore: Allow JSX import of QuizSectionsPage.jsx
@@ -44,7 +45,7 @@ export default function App() {
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<div>Welcome to the Dashboard!</div>} />
+            <Route path="dashboard" element={<DashboardHomePage />} />
             <Route path="exam-books" element={<ExamBooksPage />} />
             <Route path="sections/:bookId" element={<QuizSectionsPage />} />
             <Route path="categories/:moduleCode" element={<QuizCategoriesPage />} />
