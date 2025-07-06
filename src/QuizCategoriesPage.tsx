@@ -346,7 +346,7 @@ export default function QuizCategoriesPage() {
                   <TableCell>
                     <button
                       className="text-blue-600 underline hover:text-blue-800 transition cursor-pointer"
-                      onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}`)}
+                      onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}&lang=${category.languageCode}`)}
                       type="button"
                     >
                       {category.segmentTitle}

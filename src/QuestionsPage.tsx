@@ -48,6 +48,7 @@ const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuiz
   const quizId = propQuizKey || params.internalQuizKey;
   const bookRef = searchParams.get('bookRef') || '';
   const segmentCode = searchParams.get('segmentCode') || '';
+  const languageCode = searchParams.get('lang') || 'en';
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,14 +85,27 @@ const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuiz
     // eslint-disable-next-line
   }, [quizId]);
 
+  // Update dialog initial values when languageCode changes
+  useEffect(() => {
+    if (dialogOpen && dialogMode === 'add') {
+      setDialogInitialValues(prev => ({
+        ...prev,
+        languageCode: languageCode as 'en' | 'hi',
+      }));
+    }
+  }, [languageCode, dialogOpen, dialogMode]);
+
   // --- Add/Edit Question Dialog ---
   const handleAdd = () => {
     console.log('Add button clicked'); // Debug log
     console.log('Current quizId:', quizId); // Debug log
     console.log('Current bookRef:', bookRef); // Debug log
     console.log('Current segmentCode:', segmentCode); // Debug log
+    console.log('Current languageCode:', languageCode); // Debug log
     setDialogMode('add');
-    setDialogInitialValues({});
+    setDialogInitialValues({
+      languageCode: languageCode as 'en' | 'hi',
+    });
     setEditId(null);
     setDialogOpen(true);
   };
@@ -124,6 +138,7 @@ const QuestionsPage: React.FC<QuestionsPageProps> = ({ internalQuizKey: propQuiz
       quizId: quizId!,
       bookRef: bookRef || null,
       segmentCode: segmentCode || null,
+      languageCode: values.languageCode || languageCode as 'en' | 'hi',
       created_at: now,
       optionC: values.questionType === 1 ? values.optionC || '' : null,
       optionD: values.questionType === 1 ? values.optionD || '' : null,

@@ -75,6 +75,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
   const segmentCode = propSegmentCode || params.segmentCode;
   const bookRef = searchParams.get('bookRef') || '';
   const segmentCodeParam = searchParams.get('segmentCode') || segmentCode;
+  const languageCode = searchParams.get('lang') || 'en';
   const navigate = useNavigate();
 
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -99,7 +100,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     resolver: zodResolver(quizSchema),
     defaultValues: {
       quizStatus: 1,
-      languageCode: 'en',
+      languageCode: languageCode,
       quizTitle: '',
       segmentRef: '',
     },
@@ -143,6 +144,11 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     fetchSegments();
     // eslint-disable-next-line
   }, [segmentCode]);
+
+  // Update form language when languageCode changes
+  useEffect(() => {
+    setValue('languageCode', languageCode);
+  }, [languageCode, setValue]);
 
   // Add or update quiz
   const onSubmit = async (values: QuizForm) => {
@@ -262,7 +268,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                 reset({
                   quizTitle: '',
                   quizStatus: 1,
-                  languageCode: 'en',
+                  languageCode: languageCode,
                   segmentRef: segmentCode || '',
                 });
                 setEditId(null);
@@ -354,7 +360,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                   onClick={e => {
                     // Prevent navigation if clicking on an action button
                     if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}`);
+                    navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}&lang=${quiz.languageCode}`);
                   }}
                 >
                   <TableCell>{quiz.quizTitle}</TableCell>

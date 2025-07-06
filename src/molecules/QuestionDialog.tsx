@@ -200,9 +200,10 @@ const QuestionDialog: React.FC<QuestionDialogProps> = ({
             <div>
               <label className="block mb-1 font-medium">Type</label>
               <select
-                className="w-full border rounded px-3 py-2"
+                className="w-full border rounded px-3 py-1"
                 {...register('questionType', { valueAsNumber: true })}
                 disabled={loading}
+                size={1}
               >
                 {questionTypeOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -212,7 +213,7 @@ const QuestionDialog: React.FC<QuestionDialogProps> = ({
             </div>
             <div>
               <label className="block mb-1 font-medium">Language</label>
-              <select className="w-full border rounded px-3 py-2" {...register('languageCode')} disabled={loading}>
+              <select className="w-full border rounded px-3 py-1" {...register('languageCode')} disabled={loading}>
                 {languageOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -234,16 +235,16 @@ const QuestionDialog: React.FC<QuestionDialogProps> = ({
             />
             {(questionTextError) && <p className="text-red-500 text-xs mt-1">{questionTextError}</p>}
           </div>
-          <div className="border-t pt-4 mt-4">
+          <div>
             <div className="font-semibold mb-2">Options <span className="text-red-500">*</span></div>
-            <div className="text-sm text-gray-600 mb-3">Select the correct answer by clicking the radio button next to the option</div>
+          
             <div className="flex flex-col space-y-3">
               {['a', 'b', 'c', 'd'].map((opt, idx) => {
                 if (questionType === 2 && (opt === 'c' || opt === 'd')) return null;
                 const regKey = ({ a: 'optionA', b: 'optionB', c: 'optionC', d: 'optionD' } as const)[opt];
                 if (!regKey) return null;
                 return (
-                  <div key={opt} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div key={opt} className="flex items-center gap-3 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                     <input 
                       type="radio" 
                       value={opt} 
@@ -258,7 +259,7 @@ const QuestionDialog: React.FC<QuestionDialogProps> = ({
                         disabled={questionType === 2 && (opt === 'a' ? false : opt === 'b' ? false : true) || loading}
                         value={questionType === 2 ? (opt === 'a' ? 'True' : opt === 'b' ? 'False' : undefined) : undefined}
                         placeholder={questionType === 2 ? (opt === 'a' ? 'True' : opt === 'b' ? 'False' : '') : `Option ${opt.toUpperCase()}`}
-                        className="cursor-pointer"
+                        className="cursor-text"
                       />
                     </label>
                   </div>
