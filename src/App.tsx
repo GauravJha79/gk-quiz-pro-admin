@@ -15,6 +15,17 @@ import UsersPage from './UsersPage'
 import { AuthProvider } from './contexts/AuthContext'
 import { useAuth } from './hooks/useAuth'
 
+// 404 Not Found Page
+function NotFoundPage() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <h1 className="text-4xl font-bold mb-4">404 - Page Not Found</h1>
+      <p className="text-lg text-gray-600 mb-8">Sorry, the page you are looking for does not exist.</p>
+      <a href="/" className="text-blue-600 underline">Go to Dashboard</a>
+    </div>
+  );
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const auth = useAuth()
   const location = useLocation()
@@ -54,6 +65,7 @@ export default function App() {
             <Route path="question-reports" element={<QuestionReportsPage />} />
             <Route path="users" element={<UsersPage />} />
             {/* Add more routes here as needed */}
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

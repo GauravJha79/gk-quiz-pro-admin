@@ -15,7 +15,7 @@ import { useAuth } from './hooks/useAuth'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-  { to: '/exam-books', label: 'Exam Books', icon: <BookOpen size={20} /> },
+  { to: '/exam-books', label: 'Exam Books', icon: <BookOpen size={20} />, match: ['/exam-books', '/sections', '/categories', '/quizzes', '/questions'] },
   { to: '/question-reports', label: 'Question Reports', icon: <HelpCircle size={20} /> },
   { to: '/users', label: 'Users', icon: <Users size={20} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={20} /> },
@@ -49,25 +49,33 @@ export default function DashboardLayout() {
       </div>
       {/* Nav Links */}
       <div className="flex-1 space-y-1">
-        {navLinks.map(link => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-150 font-medium text-base focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${isActive
-                ? 'bg-blue-100 text-blue-700 shadow'
-                : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
-              }`
-            }
-            end
-            onClick={() => setSidebarOpen(false)}
-            tabIndex={0}
-            aria-label={link.label}
-          >
-            {link.icon}
-            <span>{link.label}</span>
-          </NavLink>
-        ))}
+        {navLinks.map(link => {
+          // Custom active logic for Exam Books
+          let isActive = false;
+          if (link.label === 'Exam Books') {
+            isActive = link.match.some(prefix => location.pathname.startsWith(prefix));
+          }
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive: navIsActive }) =>
+                `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-150 font-medium text-base focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
+                  (link.label === 'Exam Books' ? isActive : navIsActive)
+                    ? 'bg-blue-100 text-blue-700 shadow'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
+                }`
+              }
+              end
+              onClick={() => setSidebarOpen(false)}
+              tabIndex={0}
+              aria-label={link.label}
+            >
+              {link.icon}
+              <span>{link.label}</span>
+            </NavLink>
+          );
+        })}
       </div>
       {/* User/Logout Section */}
       <div className="mt-8 border-t pt-4 flex flex-col gap-2">
