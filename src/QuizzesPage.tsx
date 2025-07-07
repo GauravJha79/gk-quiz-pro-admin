@@ -39,6 +39,7 @@ export type Quiz = {
   segmentRef: string;
   segmentTitle?: string;
   questionVolume?: number | null;
+  displayOrder: number;
   created_at?: string;
 };
 
@@ -62,6 +63,7 @@ const quizSchema = z.object({
   quizStatus: z.coerce.number().int().min(0).max(1),
   languageCode: z.string().min(1, 'Language is required'),
   segmentRef: z.string().min(1, 'Segment is required'), // stores segmentCode
+  displayOrder: z.coerce.number().int().min(1, 'Display Order must be at least 1'),
 });
 type QuizForm = z.infer<typeof quizSchema>;
 
@@ -103,6 +105,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
       languageCode: languageCode,
       quizTitle: '',
       segmentRef: '',
+      displayOrder: 1,
     },
   });
 
@@ -114,7 +117,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
       .from('quizzes')
       .select('*')
       .eq('segmentCode', segmentCode)
-      .order('created_at', { ascending: false });
+      .order('displayOrder', { ascending: true });
     if (error) {
       toast.error('Failed to fetch quizzes');
     } else {
@@ -167,6 +170,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
           languageCode: values.languageCode,
           segmentCode: values.segmentRef,
           segmentTitle,
+          displayOrder: values.displayOrder,
         })
         .eq('internalQuizKey', editId);
       error = updateError;
@@ -180,6 +184,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
           languageCode: values.languageCode,
           segmentCode: values.segmentRef,
           segmentTitle,
+          displayOrder: values.displayOrder,
           internalQuizKey: uuidv4(),
         }]);
       error = insertError;
@@ -204,6 +209,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
       quizStatus: quiz.quizStatus,
       languageCode: quiz.languageCode,
       segmentRef: quiz.segmentCode,
+      displayOrder: quiz.displayOrder,
     });
     setOpen(true);
   };
@@ -270,6 +276,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                   quizStatus: 1,
                   languageCode: languageCode,
                   segmentRef: segmentCode || '',
+                  displayOrder: quizzes.length + 1,
                 });
                 setEditId(null);
               }}
@@ -287,6 +294,16 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                 <label className="block mb-1 font-medium text-gray-700">Quiz Title</label>
                 <Input {...register('quizTitle')} placeholder="Quiz Title" />
                 {errors.quizTitle && <p className="text-red-500 text-xs mt-1">{errors.quizTitle.message}</p>}
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-gray-700">Display Order</label>
+                <Input 
+                  {...register('displayOrder')} 
+                  type="number" 
+                  min="1"
+                  placeholder="Display Order" 
+                />
+                {errors.displayOrder && <p className="text-red-500 text-xs mt-1">{errors.displayOrder.message}</p>}
               </div>
               <div>
                 <label className="block mb-1 font-medium text-gray-700">Quiz Status</label>
@@ -335,6 +352,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Order</TableHead>
               <TableHead>Quiz Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Language</TableHead>
@@ -344,13 +362,13 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-gray-400">
+                <TableCell colSpan={5} className="text-center py-8 text-gray-400">
                   <Loader2 className="mx-auto animate-spin w-6 h-6" />
                 </TableCell>
               </TableRow>
             ) : quizzes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
+                <TableCell colSpan={5} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
               </TableRow>
             ) : (
               quizzes.map(quiz => (
@@ -363,6 +381,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
                     navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}&lang=${quiz.languageCode}`);
                   }}
                 >
+                  <TableCell className="font-semibold text-gray-600">{quiz.displayOrder}</TableCell>
                   <TableCell>{quiz.quizTitle}</TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded text-xs font-semibold ${quiz.quizStatus === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>

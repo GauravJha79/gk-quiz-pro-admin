@@ -28,7 +28,6 @@ export type QuizCategory = {
   moduleTitle: string;
   segmentTitle: string;
   segmentCode: string;
-  iconLink?: string | null;
   displayOrder: number;
   categoryStatus: number;
   questionVolume?: number | null;
@@ -55,7 +54,6 @@ const languageOptions = [
 
 const quizCategorySchema = z.object({
   segmentTitle: z.string().min(1, 'Segment Title is required'),
-  iconLink: z.string().url('Icon must be a valid URL').optional().or(z.literal('')).nullable(),
   displayOrder: z.coerce.number().int().min(0),
   categoryStatus: z.coerce.number().int().min(0).max(1),
   languageCode: z.string().min(1, 'Language is required'),
@@ -149,7 +147,6 @@ export default function QuizCategoriesPage() {
     setFormLoading(true);
     const insertData = {
       ...values,
-      iconLink: values.iconLink || null,
     };
     if (!editId) {
       // Only generate segmentCode for new category
@@ -245,7 +242,6 @@ export default function QuizCategoriesPage() {
                 if (sections.length > 0) {
                   reset({
                     segmentTitle: '',
-                    iconLink: '',
                     displayOrder: categories.length + 1,
                     categoryStatus: 1,
                     languageCode: languageCode,
@@ -273,11 +269,6 @@ export default function QuizCategoriesPage() {
                 <label className="block mb-1 font-medium text-gray-700">Category Title</label>
                 <Input {...register('segmentTitle')} placeholder="Category Title" />
                 {errors.segmentTitle && <p className="text-red-500 text-xs mt-1">{errors.segmentTitle.message}</p>}
-              </div>
-              <div>
-                <label className="block mb-1 font-medium text-gray-700">Icon Link</label>
-                <Input {...register('iconLink')} />
-                {errors.iconLink && <p className="text-red-500 text-xs mt-1">{errors.iconLink.message}</p>}
               </div>
               <div>
                 <label className="block mb-1 font-medium text-gray-700">Display Order</label>
@@ -322,8 +313,6 @@ export default function QuizCategoriesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Segment Title</TableHead>
-             
-              <TableHead>Icon</TableHead>
               <TableHead>Display Order</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Question Volume</TableHead>
@@ -334,31 +323,20 @@ export default function QuizCategoriesPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-400">Loading...</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell>
               </TableRow>
             ) : categories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-gray-400">No categories found.</TableCell>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-400">No categories found.</TableCell>
               </TableRow>
             ) : (
               categories.map(category => (
                 <TableRow key={category.id}>
-                  <TableCell>
-                    <button
-                      className="text-blue-600 underline hover:text-blue-800 transition cursor-pointer"
-                      onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}&lang=${category.languageCode}`)}
-                      type="button"
-                    >
-                      {category.segmentTitle}
-                    </button>
-                  </TableCell>
-                 
-                  <TableCell>
-                    {category.iconLink ? (
-                      <img src={category.iconLink} alt="icon" className="w-10 h-10 object-contain rounded shadow border bg-gray-50" />
-                    ) : (
-                      <span className="text-gray-400">No Icon</span>
-                    )}
+                  <TableCell
+                    className="cursor-pointer hover:bg-blue-50"
+                    onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}&lang=${category.languageCode}`)}
+                  >
+                    {category.segmentTitle}
                   </TableCell>
                   <TableCell>{category.displayOrder}</TableCell>
                   <TableCell>
@@ -374,7 +352,6 @@ export default function QuizCategoriesPage() {
                         setEditId(category.id.toString());
                         reset({
                           segmentTitle: category.segmentTitle,
-                          iconLink: category.iconLink || '',
                           displayOrder: category.displayOrder,
                           categoryStatus: category.categoryStatus,
                           languageCode: category.languageCode,
