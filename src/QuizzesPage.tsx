@@ -27,6 +27,21 @@ import {
 import { Loader2, Plus, Pencil, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import QuizDeleteAlertDialog from './atoms/QuizDeleteAlertDialog';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 
 // Types
 export type Quiz = {
@@ -69,6 +84,32 @@ type QuizForm = z.infer<typeof quizSchema>;
 
 interface QuizzesPageProps {
   segmentCode?: string;
+}
+
+// SortableRow component for drag-and-drop
+function SortableRow({ quiz, children, ...props }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: quiz.internalQuizKey,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { background: '#e0e7ff' } : {}),
+  };
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...props}
+    >
+      {/* Drag handle cell */}
+      <td {...listeners} style={{ cursor: 'grab', width: 32, textAlign: 'center' }}>
+        <GripVertical className="w-4 h-4 text-gray-400" />
+      </td>
+      {children}
+    </tr>
+  );
 }
 
 const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode }) => {
@@ -262,6 +303,31 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
     setDeleteId(null);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = quizzes.findIndex(q => q.internalQuizKey === active.id);
+    const newIndex = quizzes.findIndex(q => q.internalQuizKey === over.id);
+    const newQuizzes = arrayMove(quizzes, oldIndex, newIndex);
+    // Update displayOrder in state
+    setQuizzes(newQuizzes);
+    // Persist new order to Supabase
+    for (let i = 0; i < newQuizzes.length; i++) {
+      if (newQuizzes[i].displayOrder !== i + 1) {
+        await supabase
+          .from('quizzes')
+          .update({ displayOrder: i + 1 })
+          .eq('internalQuizKey', newQuizzes[i].internalQuizKey);
+      }
+    }
+    fetchQuizzes();
+    toast.success('Quiz order updated!');
+  };
+
   return (
     <div className="relative w-full">
       <Toaster />
@@ -352,6 +418,7 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead style={{ width: 32 }}></TableHead> {/* Drag handle column */}
               <TableHead>Order</TableHead>
               <TableHead>Quiz Title</TableHead>
               <TableHead>Status</TableHead>
@@ -359,50 +426,58 @@ const QuizzesPage: React.FC<QuizzesPageProps> = ({ segmentCode: propSegmentCode 
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">
-                  <Loader2 className="mx-auto animate-spin w-6 h-6" />
-                </TableCell>
-              </TableRow>
-            ) : quizzes.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
-              </TableRow>
-            ) : (
-              quizzes.map(quiz => (
-                <TableRow
-                  key={quiz.internalQuizKey}
-                  className="cursor-pointer hover:bg-blue-50"
-                  onClick={e => {
-                    // Prevent navigation if clicking on an action button
-                    if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}&lang=${quiz.languageCode}`);
-                  }}
-                >
-                  <TableCell className="font-semibold text-gray-600">{quiz.displayOrder}</TableCell>
-                  <TableCell>{quiz.quizTitle}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${quiz.quizStatus === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {quizStatusOptions.find(opt => opt.value === quiz.quizStatus)?.label || quiz.quizStatus}
-                    </span>
-                  </TableCell>
-                  <TableCell>{languageOptions.find(opt => opt.value === quiz.languageCode)?.label || quiz.languageCode}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => handleEdit(quiz)}>
-                        <Pencil className="w-4 h-4 mr-1" /> Edit
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => setDeleteId(quiz.internalQuizKey)}>
-                        <Trash2 className="w-4 h-4 mr-1" /> Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={quizzes.map(q => q.internalQuizKey)}
+              strategy={verticalListSortingStrategy}
+            >
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-400">
+                      <Loader2 className="mx-auto animate-spin w-6 h-6" />
+                    </TableCell>
+                  </TableRow>
+                ) : quizzes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-gray-400">No quizzes found.</TableCell>
+                  </TableRow>
+                ) : (
+                  quizzes.map(quiz => (
+                    <SortableRow key={quiz.internalQuizKey} quiz={quiz}>
+                      <TableCell className="font-semibold text-gray-600">{quiz.displayOrder}</TableCell>
+                      <TableCell
+                        className="text-blue-600 hover:underline cursor-pointer font-medium"
+                        onClick={() => navigate(`/questions/${quiz.internalQuizKey}?bookRef=${bookRef}&segmentCode=${segmentCodeParam}&lang=${quiz.languageCode}`)}
+                      >
+                        {quiz.quizTitle}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${quiz.quizStatus === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {quizStatusOptions.find(opt => opt.value === quiz.quizStatus)?.label || quiz.quizStatus}
+                        </span>
+                      </TableCell>
+                      <TableCell>{languageOptions.find(opt => opt.value === quiz.languageCode)?.label || quiz.languageCode}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => handleEdit(quiz)}>
+                            <Pencil className="w-4 h-4 mr-1" /> Edit
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => setDeleteId(quiz.internalQuizKey)}>
+                            <Trash2 className="w-4 h-4 mr-1" /> Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))
+                )}
+              </TableBody>
+            </SortableContext>
+          </DndContext>
         </Table>
       </div>
       {/* Delete Confirmation Dialog */}

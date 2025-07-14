@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import loginIllustration from './assets/login-illustration.svg';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -46,7 +47,7 @@ export default function LoginPage() {
         {/* Illustration Side */}
         <div className="hidden md:flex flex-col justify-center items-center w-1/2 bg-gradient-to-br from-blue-500 to-blue-700 p-8">
           <img
-            src="https://undraw.co/api/illustrations/3b0b7e7e-2e7e-4e7e-8e7e-7e7e7e7e7e7e"
+            src={loginIllustration}
             alt="Login Illustration"
             className="w-72 h-72 object-contain mb-6 drop-shadow-xl animate-fade-in"
           />

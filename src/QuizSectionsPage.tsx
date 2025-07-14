@@ -19,6 +19,21 @@ import { Input } from './components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './components/ui/table';
 import { v4 as uuidv4 } from 'uuid';
 import SetAlertDialog from './atoms/SetAlertDialog';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 
 
 // Type for a row in the quiz_sections table
@@ -52,6 +67,32 @@ const quizSectionSchema = z.object({
   languageCode: z.string().min(1, 'Language Code is required'),
 });
 type QuizSectionForm = z.infer<typeof quizSectionSchema>;
+
+// SortableRow component for drag-and-drop
+function SortableRow({ section, children, ...props }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { background: '#e0e7ff' } : {}),
+  };
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...props}
+    >
+      {/* Drag handle cell */}
+      <td {...listeners} style={{ cursor: 'grab', width: 32, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+        <GripVertical className="w-4 h-4 text-gray-400" />
+      </td>
+      {children}
+    </tr>
+  );
+}
 
 export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: string }) {
   const params = useParams<{ bookId: string }>();
@@ -189,6 +230,31 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
     reset();
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sections.findIndex(s => s.id === active.id);
+    const newIndex = sections.findIndex(s => s.id === over.id);
+    const newSections = arrayMove(sections, oldIndex, newIndex);
+    // Update displayOrder in state
+    setSections(newSections);
+    // Persist new order to Supabase
+    for (let i = 0; i < newSections.length; i++) {
+      if (newSections[i].displayOrder !== i + 1) {
+        await supabase
+          .from('quiz_sections')
+          .update({ displayOrder: i + 1 })
+          .eq('id', newSections[i].id);
+      }
+    }
+    fetchSections();
+    toast.success('Section order updated!');
+  };
+
   return (
     <div className="relative w-full">
       <Toaster />
@@ -288,6 +354,7 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead style={{ width: 32 }}></TableHead> {/* Drag handle column */}
               <TableHead>Icon</TableHead>
               <TableHead>Module Title</TableHead>
               <TableHead>Status</TableHead>
@@ -296,51 +363,61 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell>
-              </TableRow>
-            ) : sections.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-400">No sections found.</TableCell>
-              </TableRow>
-            ) : (
-              sections.map(section => (
-                <TableRow
-                  key={section.id}
-                  className="cursor-pointer hover:bg-blue-50"
-                  onClick={e => {
-                    // Prevent navigation if clicking on an action button
-                    if ((e.target as HTMLElement).closest('button')) return;
-                    navigate(`/categories/${section.moduleCode}?lang=${section.languageCode}&bookRef=${bookId}`);
-                  }}
-                >
-                  <TableCell>
-                    {section.iconLink ? (
-                      <img src={section.iconLink} alt="icon" className="w-10 h-10 object-contain rounded shadow border bg-gray-50" />
-                    ) : (
-                      <span className="text-gray-400">No Icon</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{section.moduleTitle}</TableCell>
-                  <TableCell>{sectionStatusOptions.find(opt => opt.value === section.sectionStatus)?.label || section.sectionStatus}</TableCell>
-                  <TableCell>{section.displayOrder}</TableCell>
-                  <TableCell>{section.setCount || 0}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={() => handleEdit(section)}>
-                        Edit
-                      </Button>
-                      <Button variant="destructive" onClick={() => setDeleteId(section.id)}>
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={sections.map(s => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">Loading...</TableCell>
+                  </TableRow>
+                ) : sections.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">No sections found.</TableCell>
+                  </TableRow>
+                ) : (
+                  sections.map(section => (
+                    <SortableRow key={section.id} section={section}
+                      className="cursor-pointer hover:bg-blue-50"
+                      onClick={(e: React.MouseEvent<HTMLTableRowElement>) => {
+                        // Prevent navigation if clicking on an action button
+                        if ((e.target as HTMLElement).closest('button')) return;
+                        navigate(`/categories/${section.moduleCode}?lang=${section.languageCode}&bookRef=${bookId}`);
+                      }}
+                    >
+                      <TableCell>
+                        {section.iconLink ? (
+                          <img src={section.iconLink} alt="icon" className="w-10 h-10 object-contain rounded shadow border bg-gray-50" />
+                        ) : (
+                          <span className="text-gray-400">No Icon</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{section.moduleTitle}</TableCell>
+                      <TableCell>{sectionStatusOptions.find(opt => opt.value === section.sectionStatus)?.label || section.sectionStatus}</TableCell>
+                      <TableCell>{section.displayOrder}</TableCell>
+                      <TableCell>{section.setCount || 0}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" onClick={() => handleEdit(section)}>
+                            Edit
+                          </Button>
+                          <Button variant="destructive" onClick={() => setDeleteId(section.id)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))
+                )}
+              </TableBody>
+            </SortableContext>
+          </DndContext>
         </Table>
       </div>
       {/* Delete Confirmation Dialog */}

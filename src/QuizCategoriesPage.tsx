@@ -19,6 +19,21 @@ import { Input } from './components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from './components/ui/table';
 import { v4 as uuidv4 } from 'uuid';
 import CategoryDeleteAlertDialog from './atoms/CategoryDeleteAlertDialog';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 
 // Types
 export type QuizCategory = {
@@ -61,6 +76,32 @@ const quizCategorySchema = z.object({
   moduleTitle: z.string().min(1),
 });
 type QuizCategoryForm = z.infer<typeof quizCategorySchema>;
+
+// SortableRow component for drag-and-drop
+function SortableRow({ category, children, ...props }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: category.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    ...(isDragging ? { background: '#e0e7ff' } : {}),
+  };
+  return (
+    <tr
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...props}
+    >
+      {/* Drag handle cell */}
+      <td {...listeners} style={{ cursor: 'grab', width: 32, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+        <GripVertical className="w-4 h-4 text-gray-400" />
+      </td>
+      {children}
+    </tr>
+  );
+}
 
 export default function QuizCategoriesPage() {
   const params = useParams<{ moduleCode: string }>();
@@ -229,6 +270,31 @@ export default function QuizCategoriesPage() {
   // Get moduleTitle for heading
   const moduleTitle = selectedSection?.moduleTitle || sections[0]?.moduleTitle || moduleCode;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = categories.findIndex(c => c.id === active.id);
+    const newIndex = categories.findIndex(c => c.id === over.id);
+    const newCategories = arrayMove(categories, oldIndex, newIndex);
+    // Update displayOrder in state
+    setCategories(newCategories);
+    // Persist new order to Supabase
+    for (let i = 0; i < newCategories.length; i++) {
+      if (newCategories[i].displayOrder !== i + 1) {
+        await supabase
+          .from('quiz_categories')
+          .update({ displayOrder: i + 1 })
+          .eq('id', newCategories[i].id);
+      }
+    }
+    fetchCategories();
+    toast.success('Category order updated!');
+  };
+
   return (
     <div className="relative w-full">
       <Toaster />
@@ -312,6 +378,7 @@ export default function QuizCategoriesPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead style={{ width: 32 }}></TableHead> {/* Drag handle column */}
               <TableHead>Segment Title</TableHead>
               <TableHead>Display Order</TableHead>
               <TableHead>Status</TableHead>
@@ -320,57 +387,68 @@ export default function QuizCategoriesPage() {
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-400">Loading...</TableCell>
-              </TableRow>
-            ) : categories.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-gray-400">No categories found.</TableCell>
-              </TableRow>
-            ) : (
-              categories.map(category => (
-                <TableRow key={category.id}>
-                  <TableCell
-                    className="cursor-pointer hover:bg-blue-50"
-                    onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}&lang=${category.languageCode}`)}
-                  >
-                    {category.segmentTitle}
-                  </TableCell>
-                  <TableCell>{category.displayOrder}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${category.categoryStatus === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {categoryStatusOptions.find(opt => opt.value === category.categoryStatus)?.label || category.categoryStatus}
-                    </span>
-                  </TableCell>
-                  <TableCell>{category.questionVolume ?? '-'}</TableCell>
-                  <TableCell>{category.setCount ?? '-'}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => {
-                        setEditId(category.id.toString());
-                        reset({
-                          segmentTitle: category.segmentTitle,
-                          displayOrder: category.displayOrder,
-                          categoryStatus: category.categoryStatus,
-                          languageCode: category.languageCode,
-                          moduleCode: category.moduleCode,
-                          moduleTitle: category.moduleTitle,
-                        });
-                        setOpen(true);
-                      }}>
-                        Edit
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => setDeleteId(category.id.toString())}>
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={categories.map(c => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">Loading...</TableCell>
+                  </TableRow>
+                ) : categories.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-400">No categories found.</TableCell>
+                  </TableRow>
+                ) : (
+                  categories.map(category => (
+                    <SortableRow key={category.id} category={category}>
+                      <TableCell
+                        className="cursor-pointer hover:bg-blue-50"
+                        onClick={() => navigate(`/quizzes/${category.segmentCode}?bookRef=${bookRef}&segmentCode=${category.segmentCode}&lang=${category.languageCode}`)}
+                      >
+                        {category.segmentTitle}
+                      </TableCell>
+                      <TableCell>{category.displayOrder}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${category.categoryStatus === 1 ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {categoryStatusOptions.find(opt => opt.value === category.categoryStatus)?.label || category.categoryStatus}
+                        </span>
+                      </TableCell>
+                      <TableCell>{category.questionVolume ?? '-'}</TableCell>
+                      <TableCell>{category.setCount ?? '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => {
+                            setEditId(category.id.toString());
+                            reset({
+                              segmentTitle: category.segmentTitle,
+                              displayOrder: category.displayOrder,
+                              categoryStatus: category.categoryStatus,
+                              languageCode: category.languageCode,
+                              moduleCode: category.moduleCode,
+                              moduleTitle: category.moduleTitle,
+                            });
+                            setOpen(true);
+                          }}>
+                            Edit
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => setDeleteId(category.id.toString())}>
+                            Delete
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </SortableRow>
+                  ))
+                )}
+              </TableBody>
+            </SortableContext>
+          </DndContext>
         </Table>
       </div>
       {/* Delete Confirmation Dialog */}
