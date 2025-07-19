@@ -7,7 +7,8 @@ import {
   Users,
   Settings,
   Menu as MenuIcon,
-  LogOut as LogoutIcon
+  LogOut as LogoutIcon,
+  BookText
 } from 'lucide-react'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { useAuth } from './hooks/useAuth'
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { to: '/exam-books', label: 'Exam Books', icon: <BookOpen size={20} />, match: ['/exam-books', '/sections', '/categories', '/quizzes', '/questions'] },
+  { to: '/gk-subjects', label: 'GK Subjects', icon: <BookText size={20} />, match: ['/gk-subjects', '/gk-topics', '/gk-questions'] },
   { to: '/question-reports', label: 'Question Reports', icon: <HelpCircle size={20} /> },
   { to: '/users', label: 'Users', icon: <Users size={20} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={20} /> },
@@ -50,9 +52,9 @@ export default function DashboardLayout() {
       {/* Nav Links */}
       <div className="flex-1 space-y-1">
         {navLinks.map(link => {
-          // Custom active logic for Exam Books
+          // Custom active logic for sections with sub-routes
           let isActive = false;
-          if (link.label === 'Exam Books') {
+          if (link.label === 'Exam Books' || link.label === 'GK Subjects') {
             isActive = link.match.some(prefix => location.pathname.startsWith(prefix));
           }
           return (
@@ -61,7 +63,7 @@ export default function DashboardLayout() {
               to={link.to}
               className={({ isActive: navIsActive }) =>
                 `flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-150 font-medium text-base focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
-                  (link.label === 'Exam Books' ? isActive : navIsActive)
+                  (link.label === 'Exam Books' || link.label === 'GK Subjects' ? isActive : navIsActive)
                     ? 'bg-blue-100 text-blue-700 shadow'
                     : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600'
                 }`

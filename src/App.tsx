@@ -12,8 +12,20 @@ import QuizzesPage from './QuizzesPage'
 import QuestionsPage from './QuestionsPage'
 import QuestionReportsPage from './QuestionReportsPage'
 import UsersPage from './UsersPage'
+import GKSubjectsPage from './GKSubjectsPage'
+import GKTopicsPage from './GKTopicsPage'
+import GKOneLinerQuestionsPage from './GKOneLinerQuestionsPage'
 import { AuthProvider } from './contexts/AuthContext'
 import { useAuth } from './hooks/useAuth'
+import { useParams } from 'react-router-dom'
+
+// Wrapper components for GK pages
+function GKTopicsPageWrapper() {
+  const { subjectId } = useParams<{ subjectId: string }>();
+  return <GKTopicsPage subjectId={subjectId!} languageCode="en" />;
+}
+
+
 
 // 404 Not Found Page
 function NotFoundPage() {
@@ -33,11 +45,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (auth.loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
-  
+
   if (!auth.user || !auth.isAdmin()) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
-  
+
   return <>{children}</>
 }
 
@@ -64,6 +76,10 @@ export default function App() {
             <Route path="questions/:internalQuizKey" element={<QuestionsPage />} />
             <Route path="question-reports" element={<QuestionReportsPage />} />
             <Route path="users" element={<UsersPage />} />
+            {/* GK Routes */}
+            <Route path="gk-subjects" element={<GKSubjectsPage languageCode="en" />} />
+            <Route path="gk-topics/:subjectId" element={<GKTopicsPageWrapper />} />
+            <Route path="gk-oneliner-questions/:topicId" element={<GKOneLinerQuestionsPage />} />
             {/* Add more routes here as needed */}
             <Route path="*" element={<NotFoundPage />} />
           </Route>
