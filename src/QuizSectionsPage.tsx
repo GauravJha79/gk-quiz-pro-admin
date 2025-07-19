@@ -106,7 +106,10 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
   const [showSetAlert, setShowSetAlert] = useState(false);
   const [setAlertData, setSetAlertData] = useState<{ setCount: number; title: string } | null>(null);
   const navigate = useNavigate();
-  const [language, setLanguage] = useState<string>('hi');
+  const [language, setLanguage] = useState<string>(() => {
+    // Initialize from localStorage if available
+    return localStorage.getItem('quiz-section-language') || 'hi';
+  });
 
   const {
     register,
@@ -265,7 +268,10 @@ export default function QuizSectionsPage({ bookId: propBookId }: { bookId?: stri
             id="language-select"
             className="border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             value={language}
-            onChange={e => setLanguage(e.target.value)}
+            onChange={e => {
+              setLanguage(e.target.value);
+              localStorage.setItem('quiz-section-language', e.target.value);
+            }}
           >
             <option value="hi">Hindi</option>
             <option value="en">English</option>

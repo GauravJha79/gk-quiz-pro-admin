@@ -17,6 +17,7 @@ export type ExamBook = {
   order: number
   total_category_hi: number
   total_category_en: number
+  status: boolean // true=public, false=draft
 }
 
 // Zod schema for form validation
@@ -27,6 +28,7 @@ const examBookSchema = z.object({
   order: z.coerce.number().int().min(0),
   total_category_hi: z.coerce.number().int().min(0),
   total_category_en: z.coerce.number().int().min(0),
+  status: z.boolean(),
 })
 type ExamBookForm = z.infer<typeof examBookSchema>
 
@@ -92,7 +94,10 @@ export default function ExamBooksPage() {
   // Edit handler
   const handleEdit = (book: ExamBook) => {
     setEditId(book.id)
-    reset(book)
+    reset({
+      ...book,
+      status: !!book.status, // ensure boolean
+    })
     setOpen(true)
   }
 
@@ -180,6 +185,7 @@ export default function ExamBooksPage() {
               order: 0,
               total_category_hi: 0,
               total_category_en: 0,
+              status: true, // default to public
             });
             setOpen(true);
           }}
@@ -232,6 +238,18 @@ export default function ExamBooksPage() {
                   <input type="number" className="w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition" {...register('total_category_en')} />
                   {errors.total_category_en && <p className="text-red-500 text-xs mt-1">{errors.total_category_en.message}</p>}
                 </div>
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-gray-700">Status</label>
+                <select
+                  className="w-full border-2 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+                  {...register('status', { setValueAs: v => v === 'true' })}
+                  defaultValue={"true"}
+                >
+                  <option value="true">Public</option>
+                  <option value="false">Draft</option>
+                </select>
+                {errors.status && <p className="text-red-500 text-xs mt-1">{errors.status.message}</p>}
               </div>
               <div className="flex gap-2 justify-end pt-2">
                 <button
@@ -305,6 +323,7 @@ export default function ExamBooksPage() {
               <th className="px-4 py-3 text-left font-semibold">Order</th>
               <th className="px-4 py-3 text-left font-semibold">Total Cat (HI)</th>
               <th className="px-4 py-3 text-left font-semibold">Total Cat (EN)</th>
+              <th className="px-4 py-3 text-left font-semibold">Status</th>
               <th className="px-4 py-3 text-left font-semibold">Actions</th>
             </tr>
           </thead>
@@ -327,6 +346,13 @@ export default function ExamBooksPage() {
                 <td className="px-4 py-3 text-blue-700 font-bold">{book.order}</td>
                 <td className="px-4 py-3 text-blue-700">{book.total_category_hi}</td>
                 <td className="px-4 py-3 text-blue-700">{book.total_category_en}</td>
+                <td className="px-4 py-3">
+                  {book.status ? (
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-700 font-semibold text-xs">Public</span>
+                  ) : (
+                    <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-700 font-semibold text-xs">Draft</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 flex gap-2">
                   <button
                     className="px-3 py-1 bg-yellow-400 text-white rounded-lg font-semibold shadow hover:bg-yellow-500 transition"
@@ -345,7 +371,7 @@ export default function ExamBooksPage() {
             ))}
             {paginatedBooks.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-400">No books found.</td>
+                <td colSpan={8} className="text-center py-8 text-gray-400">No books found.</td>
               </tr>
             )}
           </tbody>

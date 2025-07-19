@@ -216,7 +216,7 @@ export default function GKTopicsPage({ subjectId, languageCode }: GKTopicsPagePr
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg">
+      <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
             <TableRow>
