@@ -3,9 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "resolutions": {
+    "@toast-ui/react-editor/react": "^19.1.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "vercel-build": "yarn install --ignore-engines && yarn build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
